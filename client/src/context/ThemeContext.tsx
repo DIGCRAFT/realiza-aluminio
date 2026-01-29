@@ -1,23 +1,64 @@
-// client/src/contexts/ThemeContext.tsx
-import React, { createContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-type ThemeContextType = {
-  theme: "light" | "dark";
-  setTheme: (t: "light" | "dark") => void;
-};
+type Theme = "light" | "dark";
 
-export const ThemeContext = createContext<ThemeContextType>({
-  theme: "light",
-  setTheme: () => {},
-});
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme?: () => void;
+  switchable: boolean;
+}
 
-export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  defaultTheme?: Theme;
+  switchable?: boolean;
+}
+
+export function ThemeProvider({
+  children,
+  defaultTheme = "light",
+  switchable = false,
+}: ThemeProviderProps) {
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (switchable) {
+      const stored = localStorage.getItem("theme");
+      return (stored as Theme) || defaultTheme;
+    }
+    return defaultTheme;
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+
+    if (switchable) {
+      localStorage.setItem("theme", theme);
+    }
+  }, [theme, switchable]);
+
+  const toggleTheme = switchable
+    ? () => {
+        setTheme(prev => (prev === "light" ? "dark" : "light"));
+      }
+    : undefined;
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, switchable }}>
       {children}
     </ThemeContext.Provider>
   );
-};
+}
 
-export default ThemeProvider; // Esta linha exporta o ThemeProvider como default, mas a importação nomeada no App.tsx também funciona com a exportação acima.
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error("useTheme must be used within ThemeProvider");
+  }
+  return context;
+}
